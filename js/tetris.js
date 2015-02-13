@@ -17,7 +17,7 @@ var KEY = {ESC: 27,
     uctx = ucanvas.getContext('2d'),
     speed = {start: 0.6, decrement: 0.005, min: 0.1}, // how long before piece drops by 1 row (seconds)
     nx = 10, // width of Tetris court (blocks)
-    ny = 20, // height of Tetris court (bblocks)
+    ny = 20, // height of Tetris court (blocks)
     nu = 5;  // width/height of upcoming preview (blocks)
 
 var dx, dy,        // Pixel size of a single Tetris block
@@ -33,6 +33,17 @@ var dx, dy,        // Pixel size of a single Tetris block
     step;          // Single row drop duration
 
 // The pieces
+// blocks: each element represents a rotation of the piece (0, 90, 180, 270)
+//         each element is a 16 bit integer where the 16 bits represent
+//         a 4x4 set of blocks, e.g. j.blocks[0] = 0x44C0
+//
+//             0100 = 0x4 << 3 = 0x4000
+//             0100 = 0x4 << 2 = 0x0400
+//             1100 = 0xC << 1 = 0x00C0
+//             0000 = 0x0 << 0 = 0x0000
+//                               ------
+//                               0x44C0
+var pieces = [];
 var i = {size: 4, blocks: [0x0F00, 0x2222, 0x00F0, 0x4444], color: 'cyan'};
 var j = {size: 3, blocks: [0x44C0, 0x8E00, 0x6440, 0x0E20], color: 'blue'};
 var l = {size: 3, blocks: [0x4460, 0x0E80, 0xC440, 0x2E00], color: 'orange'};
@@ -40,29 +51,6 @@ var o = {size: 2, blocks: [0xCC00, 0xCC00, 0xCC00, 0xCC00], color: 'yellow'};
 var s = {size: 3, blocks: [0x06C0, 0x8C40, 0x6C00, 0x4620], color: 'green'};
 var t = {size: 3, blocks: [0x0E40, 0x4C40, 0x4E00, 0x4640], color: 'purple'};
 var z = {size: 3, blocks: [0x0C60, 0x4C80, 0xC600, 0x2640], color: 'red'};
-
-// Leia constants
-var _renderMode = 'TuningPanelOn';
-var _targetEnvironment = 'IDE';
-
-var _colorMode = "color";
-
-var _ZDPNormal = {
-    x: 0.00,
-    y: 0.00,
-    z: 1.00
-};
-var _ZDPDistanceToCamera = 500.00;
-var _ZDPCenter = {x:0.00,y:0.00,z:0.00};
-var _ZDPSize = 40.00;
-
-var _maxDisparity = 5.00;
-var _baselineScale = 1.00;
-
-//read only
-var _up = 7.39;
-var _down = -7.62;
-var _camPosition = {x:0.00,y:0.00,z:500.00};
 
 // http://paulirish.com/2011/requestanimationframe-for-smart-animating/
 if (!window.requestAnimationFrame) {
@@ -102,9 +90,12 @@ function randomChoice(choices) {
 }
 
 // Do the bit manipulation and iterate through each occupied block (x,y) for a given piece
-function eachblock(type, x, y, dir, fn) {
+function eachBlock(type, x, y, dir, fn) {
+    log("eachBlock");
     var bit, result, row = 0, col = 0, blocks = type.blocks[dir];
+    var loopNum = 0;
     for (bit = 0x8000; bit > 0; bit = bit >> 1) {
+        //log("eachBlock loop #" + loopNum++);
         if (blocks & bit) {
             fn(x + col, y + row);
         }
@@ -117,7 +108,7 @@ function eachblock(type, x, y, dir, fn) {
 
 function isOccupied(type, x, y, dir) {
     var result = false;
-    eachblock(type, x, y, dir, function (x, y) {
+    eachBlock(type, x, y, dir, function (x, y) {
         if ((x < 0) || (x >= nx) || (y < 0) || (y >= ny) || getBlock(x, y)) {
             result = true;
         }
@@ -130,7 +121,6 @@ function isUnoccupied(type, x, y, dir) {
     return !isOccupied(type, x, y, dir);
 }
 
-var pieces = [];
 function randomPiece() {
     if (pieces.length == 0) {
         pieces = [i, i, i, i, j, j, j, j, l, l, l, l, o, o, o, o, s, s, s, s, t, t, t, t, z, z, z, z];
@@ -173,9 +163,9 @@ function resize(event) {
 }
 
 function keydown(ev) {
+    log(ev.keyCode);
     var handled = false;
     if (playing) {
-        log(ev.keyCode);
         switch (ev.keyCode) {
             case KEY.LEFT:
                 actions.push(DIR.LEFT);
@@ -206,7 +196,6 @@ function keydown(ev) {
     if (handled) {
         ev.preventDefault(); // prevent arrow keys from scrolling the page (supported in IE9+ and all other browsers)
     }
-
 }
 
 function play() {
@@ -357,7 +346,7 @@ function drop() {
 }
 
 function dropPiece() {
-    eachblock(current.type, current.x, current.y, current.dir, function (x, y) {
+    eachBlock(current.type, current.x, current.y, current.dir, function (x, y) {
         setBlock(x, y, current.type);
     });
 }
@@ -464,12 +453,15 @@ function drawRows() {
 }
 
 function drawPiece(ctx, type, x, y, dir) {
-    eachblock(type, x, y, dir, function (x, y) {
+    log("drawPiece");
+    eachBlock(type, x, y, dir, function (x, y) {
+        log("eachBlock");
         drawBlock(ctx, x, y, type.color);
     });
 }
 
 function drawBlock(ctx, x, y, color) {
+    log("drawBlock color:"+color);
     ctx.fillStyle = color;
     ctx.fillRect(x * dx, y * dy, dx, dy);
     ctx.strokeRect(x * dx, y * dy, dx, dy)
