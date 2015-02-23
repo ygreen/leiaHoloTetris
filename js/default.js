@@ -70,10 +70,17 @@ CircularLinkedList.prototype.getSize = function () {
     console.log(this);
 };
 
+CircularLinkedList.prototype.getIndex = function (index) {
+    var ptr = this.head;
+    for(x=0; x < index; x++) {
+        ptr = ptr.next;
+    }
+    return ptr;
+};
+
 CircularLinkedList.prototype.close = function () { //Don't call this. IT blows things up.
     var ptr = this.head;
     while (ptr.next != null) {
-        log(ptr);
         ptr = ptr.next;
     }
     ptr.next = this.head;
@@ -106,10 +113,11 @@ function Init() {
 
     LEIA.virtualScreen.width = 40;
     LEIA.virtualScreen.center.copy({x:0.00,y:0.00,z:0.00});
+    //LEIA.virtualScreen.normal.copy({x:0.20,y:-0.20,z:1.00});
     LEIA.virtualScreen.normal.copy({x:0.00,y:0.00,z:1.00});
     LEIA.virtualScreen.b = 1.0;
     LEIA.virtualScreen.d = 500;
-    LEIA.virtualScreen.disp = 5;
+    LEIA.virtualScreen.disp = 10;
     LEIA.virtualScreen.h = 0;
     LEIA.virtualScreen.setShiftXY(4,3);
     LEIA.physicalScreen.resolution = new THREE.Vector2(200,150);
@@ -190,7 +198,7 @@ function handleGameTick() {
 }
 
 function keydown(ev) {
-    log(ev.keyCode);
+    //log(ev.keyCode);
     var handled = false;
     if (playing) {
         switch (ev.keyCode) {
@@ -224,7 +232,8 @@ function keydown(ev) {
                 }
                 break;
             case KEY.X:
-                log(temp);
+                //log(temp);
+                log(getLocalCoords(activeShape));
                 break;
             case KEY.ESC:
                 //lose();
@@ -248,7 +257,14 @@ function rotate(shape) { //Triggered by keboard events
         //shape.rotation.z -= Math.PI/2;
         shape.rotateOnAxis(new THREE.Vector3(0,0,1), Math.PI/2);
         shape.dispatchEvent(evntRotate);
+
+        if( getWidestEdgePoints(shape).l >= -LEIA.virtualScreen.width/2 && getWidestEdgePoints(shape).r < LEIA.virtualScreen.width/2 ) {
+            log("Rotation allowed");
+        } else {
+            log("Rotation blocked");
+        }
     }
+    //getLocalCoords(shape);
 
     //var time = Date.now() *0.001;
     //var omega = 0.3;
@@ -257,7 +273,7 @@ function rotate(shape) { //Triggered by keboard events
 
 function handleRotation(shape) { //Triggered by the event dispatcher
     shape.orientation = shape.orientation == 3 ? 0 : shape.orientation+1;
-    updateLocalCoords(shape);
+    getLocalCoords(shape);
 }
 
 function move(shape, direction) {
@@ -268,14 +284,14 @@ function move(shape, direction) {
 
     switch(direction){
         case DIR.LEFT:
-            if( shape.position.x >= -LEIA.virtualScreen.width/2 ) {
+            if( getWidestEdgePoints(shape).l >= -(LEIA.virtualScreen.width/2-3) ) {
                 shape.position.x -= cubeSize;
             } else {
                 log("Hit left edge");
             }
             break;
         case DIR.RIGHT:
-            if( shape.position.x < LEIA.virtualScreen.width/2 ) {
+            if( getWidestEdgePoints(shape).r < (LEIA.virtualScreen.width/2)-3) {
                 shape.position.x += cubeSize;
             } else {
                 log("Hit right edge");
@@ -288,19 +304,59 @@ function move(shape, direction) {
             shape.position.y -= cubeSize;
             break;
     }
+
+    //var vec = new THREE.Vector3();
+    //vec.setFromMatrixPosition(shape.children[3].matrixWorld);
+    //log(vec);
+
 }
 
-var li = new CircularLinkedList();
-li.append("-(cubeSize+shape.position.x)");
-li.append(1);
-li.append(2);
+function getAllCoordinates(shape) {
+    var vector = new THREE.Vector3();
+    for(var x=0; x < shape.children.length; x++) {
+        vector.setFromMatrixPosition(shape.children[x].matrixWorld);
+        
+    }
+}
 
-function updateLocalCoords(shape) {
-    log( eval(li.head.value) );
+function getWidestEdgePoints(shape) {
+    var lCoord = Number.POSITIVE_INFINITY;
+    var rCoord = Number.NEGATIVE_INFINITY;
+    var vector = new THREE.Vector3();
+
+    for(var x=0; x < shape.children.length; x++) {
+        vector.setFromMatrixPosition(shape.children[x].matrixWorld);
+        lCoord = vector.x < lCoord ? vector.x : lCoord;
+        rCoord = vector.x > rCoord ? vector.x : rCoord;
+    }
+    return {l:lCoord,r:rCoord};
+}
+
+var shapePositionAlgos = [];
+var li = new CircularLinkedList();
+li.append({x:"shape.position.x", y:"shape.position.y"});
+li.append({x:"-(cubeSize+shape.position.x)", y:"shape.position.y"});
+li.append({x:"shape.position.x", y:"cubeSize+shape.position.y"});
+li.append({x:"cubeSize+shape.position.x", y:"shape.position.y"});
+
+shapePositionAlgos[SHAPE.T] = li;
+//temp = shapePositionAlgos[SHAPE.T].getIndex(2).value.x;
+//temp = getLocalCoords(activeShape);
+
+function getLocalCoords(shape) {
 
     switch(shape.type) {
         case SHAPE.T:
+            /*
+            shape.children[0].worldX = shape.position.x;
+            shape.children[0].worldY = shape.position.y;
 
+            for(var x = 1; x < shape.children.length; x++) {
+                shape.children[x].worldX = shapePositionAlgos[SHAPE.T].getIndex(shape.orientation+1).value.x;
+                shape.children[x].worldY = shapePositionAlgos[SHAPE.T].getIndex(shape.orientation+1).value.y;
+            }
+            */
+            //log(shape);
         break;
         case SHAPE.I:
 
@@ -321,9 +377,12 @@ function updateLocalCoords(shape) {
 
         break;
     }
+
+    return shape;
 }
 
 function genCube(color, newSize) {
+    var wrapper = new THREE.Object3D();
     var size = newSize | cubeSize;
     var box = new THREE.BoxGeometry(size,size,size);
     var material = new THREE.MeshBasicMaterial( {color: color} );
@@ -331,18 +390,17 @@ function genCube(color, newSize) {
     var mesh = new THREE.Mesh(box, material);
     mesh.castShadow = true;
 
-    //material.castShadow = true;
     //mesh.position.set(bbx, bby, bbz);
     //log(mesh.position);
-
-    return mesh;
+    wrapper.add(mesh);
+    return wrapper;
 }
 
 function genShape(type) {
-    var group = new THREE.Object3D();
-    group.type = type;
-    group.orientation = 0; //group.orientation = group.orientation == 3 ? 0 : group.orientation++;
-    group.addEventListener("rotate", function(e) { handleRotation(group); }, false);
+    var shape = new THREE.Object3D();
+    shape.type = type;
+    shape.orientation = 0; //group.orientation = group.orientation == 3 ? 0 : group.orientation++;
+    shape.addEventListener("rotate", function(e) { handleRotation(shape); }, false);
     var c;
 
     /*
@@ -359,131 +417,128 @@ function genShape(type) {
             log("Generating a T");
             c = genCube("red");
             c.position.set(0,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("green");
             c.position.set(-cubeSize,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("blue");
             c.position.set(0,cubeSize,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("yellow");
             c.position.set(cubeSize,0,0);
-            group.add(c);
+            shape.add(c);
 
-            group.positions = [{x:"-(cubeSize+group.position.x)", y:"group.position.y"},
-                               {x:"group.position.x", y:"cubeSize+group.position.y"},
-                               {x:"group.position.x+cubeSize", y:"group.position.y"}];
             break;
         case SHAPE.I:
             log("Generating an I");
             c = genCube("red");
             c.position.set(0,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("green");
             c.position.set(0,cubeSize,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("blue");
             c.position.set(0,-cubeSize,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("yellow");
             c.position.set(0,cubeSize*2,0);
-            group.add(c);
+            shape.add(c);
             break;
         case SHAPE.L:
             log("Generating an L");
             c = genCube("red");
             c.position.set(0,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("green");
             c.position.set(-cubeSize,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("blue");
             c.position.set(-cubeSize*2,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("yellow");
             c.position.set(0,cubeSize,0);
-            group.add(c);
+            shape.add(c);
             break;
         case SHAPE.J:
             log("Generating a J");
             c = genCube("red");
             c.position.set(0,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("green");
             c.position.set(cubeSize,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("blue");
             c.position.set(cubeSize*2,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("yellow");
             c.position.set(0,cubeSize,0);
-            group.add(c);
+            shape.add(c);
             break;
         case SHAPE.S:
             log("Generating an S");
             c = genCube("red");
             c.position.set(0,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("green");
             c.position.set(-cubeSize,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("blue");
             c.position.set(0,cubeSize,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("yellow");
             c.position.set(cubeSize,cubeSize,0);
-            group.add(c);
+            shape.add(c);
             break;
         case SHAPE.Z:
             log("Generating a Z");
             c = genCube("red");
             c.position.set(0,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("green");
             c.position.set(cubeSize,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("blue");
             c.position.set(0,cubeSize,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("yellow");
             c.position.set(cubeSize,cubeSize,0);
-            group.add(c);
+            shape.add(c);
             break
         case SHAPE.H:
             log("Generating an H");
             c = genCube("red");
             c.position.set(0,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("green");
             c.position.set(cubeSize,0,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("blue");
             c.position.set(0,cubeSize,0);
-            group.add(c);
+            shape.add(c);
 
             c = genCube("yellow");
             c.position.set(cubeSize,cubeSize,0);
-            group.add(c);
+            shape.add(c);
             break;
     }
 
@@ -496,7 +551,7 @@ function genShape(type) {
     log(group);
     */
 
-    return group;
+    return shape;
 }
 
 function addShapeToScene() {
