@@ -258,13 +258,13 @@ function rotate(shape) { //Triggered by keboard events
         shape.rotateOnAxis(new THREE.Vector3(0,0,1), Math.PI/2);
         shape.dispatchEvent(evntRotate);
 
-        if( getWidestEdgePoints(shape).l >= -LEIA.virtualScreen.width/2 && getWidestEdgePoints(shape).r < LEIA.virtualScreen.width/2 ) {
+        var widestPoints = getWidestEdgePoints(shape);
+        if( widestPoints.l >= -LEIA.virtualScreen.width/2 && widestPoints.r < LEIA.virtualScreen.width/2 ) {
             log("Rotation allowed");
         } else {
             log("Rotation blocked");
         }
     }
-    //getLocalCoords(shape);
 
     //var time = Date.now() *0.001;
     //var omega = 0.3;
@@ -291,16 +291,17 @@ function move(shape, direction) {
         activeShape = addShapeToScene();
     }
 
+    var widestPoints = getWidestEdgePoints(shape);
     switch(direction){
         case DIR.LEFT:
-            if( getWidestEdgePoints(shape).l >= -(LEIA.virtualScreen.width/2-3) ) {
+            if( widestPoints.l >= -(LEIA.virtualScreen.width/2-3) ) {
                 shape.position.x -= cubeSize;
             } else {
                 log("Hit left edge");
             }
             break;
         case DIR.RIGHT:
-            if( getWidestEdgePoints(shape).r < (LEIA.virtualScreen.width/2)-3) {
+            if( widestPoints.r < (LEIA.virtualScreen.width/2)-3) {
                 shape.position.x += cubeSize;
             } else {
                 log("Hit right edge");
@@ -339,7 +340,7 @@ function getWidestEdgePoints(shape) {
     return {l:lCoord,r:rCoord};
 }
 
-function isEqual(thisCoordObj, thatCoordObj) {
+function willCollideNextMove(thisCoordObj, thatCoordObj) {
     return thisCoordObj.x == thatCoordObj.x && thisCoordObj.y-cubeSize == thatCoordObj.y;
 }
 
@@ -350,7 +351,7 @@ function hasCollided(shape) {
 
         for( var n = 0; n < activeShapeCoords.length; n++ ) {
             for(var m = 0; m < deadShapeCoords.length; m++) {
-                if( isEqual(activeShapeCoords[n],deadShapeCoords[m]) ) {
+                if( willCollideNextMove(activeShapeCoords[n],deadShapeCoords[m]) ) {
                     return true;
                 }
             }
@@ -367,21 +368,6 @@ function hasReachedFloor(shape) {
     }
 
     return lowestCoord <= floor;
-}
-
-function getBottomMostCoordinate(shape) {
-    var coords = getShapeCoordinates(shape);
-    var lowestCoord = Number.NEGATIVE_INFINITY;
-    var lowestBlock;
-    for(var x=0; x < coords.length; x++) {
-        var y = Math.abs(coords[x].y);
-        if( y > lowestCoord ) {
-            lowestCoord = y;
-        }
-        //lowestBlock = Math.abs(coords[x].y) > lowestCoord ? coords[x] : null;
-    }
-
-    return lowestCoord;
 }
 
 var shapePositionAlgos = [];
@@ -454,14 +440,6 @@ function genShape(type) {
     shape.orientation = 0; //group.orientation = group.orientation == 3 ? 0 : group.orientation++;
     shape.addEventListener("rotate", function(e) { handleRotation(shape); }, false);
     var c;
-
-    /*
-    var positions[];
-    positions[SHAPE.T] = "";
-    positions[SHAPE.I] = "";
-    positions[SHAPE.L] = "";
-    positions[SHAPE.J] = "";
-    */
 
     activeShape.type = type; //Cache the type
     switch(type) { //TODO: Refactor into a for() later...
@@ -593,22 +571,12 @@ function genShape(type) {
             shape.add(c);
             break;
     }
-
-    /*
-    group.computeBoundingBox();
-    var bb = group.boundingBox;
-    var bbx = -0.5 * (bb.max.x - bb.min.x);
-    var bby = -0.5 * (bb.max.y - bb.min.y);
-    var bbz = -0.5 * (bb.max.z - bb.min.z);
-    log(group);
-    */
-
     return shape;
 }
 
 function addShapeToScene() {
-    //var shape = genShape( getRandomInt(0,6) );
-    var shape = genShape( SHAPE.T );
+    var shape = genShape( getRandomInt(0,6) );
+    //var shape = genShape( SHAPE.T );
     tetrisWorld.add(shape);
     shape.position.y = ceiling;
 
