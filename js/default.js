@@ -340,7 +340,7 @@ function getWidestEdgePoints(shape) {
 }
 
 function isEqual(thisCoordObj, thatCoordObj) {
-    return thisCoordObj.x == thatCoordObj.x && thisCoordObj.y == thatCoordObj.y;
+    return thisCoordObj.x == thatCoordObj.x && thisCoordObj.y-cubeSize == thatCoordObj.y;
 }
 
 function hasCollided(shape) {
