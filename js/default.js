@@ -33,6 +33,7 @@ var floor = -11;
 var ceiling = 13;
 var cubeHeight = 0;
 var evntRotate = new CustomEvent("rotate");
+var deadShapes = [];
 
 var temp;
 
@@ -193,7 +194,6 @@ function stopGame() {
 
 function handleGameTick() {
     //log("Tick!");
-    //log("Position Y: "+activeShape.position.y);
     move(activeShape);
 }
 
@@ -233,7 +233,7 @@ function keydown(ev) {
                 break;
             case KEY.X:
                 //log(temp);
-                log(getLocalCoords(activeShape));
+                log(getShapeCoordinates(activeShape));
                 break;
             case KEY.ESC:
                 //lose();
@@ -277,8 +277,17 @@ function handleRotation(shape) { //Triggered by the event dispatcher
 }
 
 function move(shape, direction) {
-    if(activeShape.position.y <= floor) {
+
+    if( hasCollided(activeShape) ) {
+        log("Collision detected");
+        deadShapes[deadShapes.length] = activeShape;
+        activeShape = addShapeToScene();
+        return;
+    }
+
+    if( hasReachedFloor(activeShape) ) {
         log("Floor reached");
+        deadShapes[deadShapes.length] = activeShape;
         activeShape = addShapeToScene();
     }
 
@@ -304,19 +313,16 @@ function move(shape, direction) {
             shape.position.y -= cubeSize;
             break;
     }
-
-    //var vec = new THREE.Vector3();
-    //vec.setFromMatrixPosition(shape.children[3].matrixWorld);
-    //log(vec);
-
 }
 
-function getAllCoordinates(shape) {
+function getShapeCoordinates(shape) {
     var vector = new THREE.Vector3();
+    var coords = [];
     for(var x=0; x < shape.children.length; x++) {
         vector.setFromMatrixPosition(shape.children[x].matrixWorld);
-        
+        coords[x] = {x: vector.x, y: vector.y};
     }
+    return coords;
 }
 
 function getWidestEdgePoints(shape) {
@@ -329,7 +335,53 @@ function getWidestEdgePoints(shape) {
         lCoord = vector.x < lCoord ? vector.x : lCoord;
         rCoord = vector.x > rCoord ? vector.x : rCoord;
     }
+
     return {l:lCoord,r:rCoord};
+}
+
+function isEqual(thisCoordObj, thatCoordObj) {
+    return thisCoordObj.x == thatCoordObj.x && thisCoordObj.y == thatCoordObj.y;
+}
+
+function hasCollided(shape) {
+    for(var x = 0; x < deadShapes.length; x++) {
+        var deadShapeCoords = getShapeCoordinates(deadShapes[x]);
+        var activeShapeCoords = getShapeCoordinates(shape);
+
+        for( var n = 0; n < activeShapeCoords.length; n++ ) {
+            for(var m = 0; m < deadShapeCoords.length; m++) {
+                if( isEqual(activeShapeCoords[n],deadShapeCoords[m]) ) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+function hasReachedFloor(shape) {
+    var coords = getShapeCoordinates(shape);
+    var lowestCoord = Number.POSITIVE_INFINITY;
+    for(var x=0; x < coords.length; x++) {
+        lowestCoord = coords[x].y < lowestCoord ? coords[x].y : lowestCoord;
+    }
+
+    return lowestCoord <= floor;
+}
+
+function getBottomMostCoordinate(shape) {
+    var coords = getShapeCoordinates(shape);
+    var lowestCoord = Number.NEGATIVE_INFINITY;
+    var lowestBlock;
+    for(var x=0; x < coords.length; x++) {
+        var y = Math.abs(coords[x].y);
+        if( y > lowestCoord ) {
+            lowestCoord = y;
+        }
+        //lowestBlock = Math.abs(coords[x].y) > lowestCoord ? coords[x] : null;
+    }
+
+    return lowestCoord;
 }
 
 var shapePositionAlgos = [];
