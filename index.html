@@ -58,7 +58,7 @@
     var _camPosition = {x:0.00,y:0.00,z:500.00};
 
     window.onload = function () {
-        LEIA.physicalScreen.InitFromExternalJson('https://s3.amazonaws.com/leiacore/config.json',function(){
+        LEIA.physicalScreen.InitFromExternalJson('leiacore/config.json',function(){
             tetrisWorld = new THREE.Object3D();
             Init();
             animate();
